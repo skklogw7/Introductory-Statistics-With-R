@@ -1,0 +1,192 @@
+---
+title: "ANOVA and Kruskal-Wallis"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 6. ANOVA and Kruskal-Wallis
+
+```{r}
+data("red.cell.folate")
+attach(red.cell.folate)
+summary(red.cell.folate)
+```
+
+Calculate the linear model and extract the anova results with anova function
+
+```{r}
+summary(lm(folate ~ ventilation))
+anova(lm(folate ~ ventilation))
+```
+
+Factor label is between; residuals is within
+
+```{r}
+data(juul)
+attach(juul)
+str(juul)
+```
+
+Notice tanner variable is int. ANOVA here (as shown below) would be a serious error... computes lm on group number
+
+```{r}
+anova(lm(igf1 ~ tanner))
+```
+
+```{r}
+juul$tanner <- as.factor(juul$tanner)
+detach(juul)
+attach(juul)
+str(juul)
+anova(lm(igf1 ~ tanner))
+```
+
+After defining an omnibus difference, next step is to explore where the omnibus effect came from. Can just look at the linear model to find group differences... note: don't interpret the betas as you normally would here. 
+
+```{r}
+library(dplyr)
+red.cell.folate %>% group_by(ventilation) %>% summarise(mean_folate = mean(folate))
+
+summary(lm(folate ~ ventilation))
+```
+
+Intercept is mean of the first group; other betas are difference between their group means and and that of the referent group.
+
+However, comparison between 2nd and 3rd group is not possible, so have to look at all pairwise comparisons
+
+```{r}
+pairwise.t.test(folate, ventilation, p.adj = "bonferroni")
+```
+This is a table of p-values for each of the comparisons
+
+###Relaxing the variance assumption
+Normally each group should have same variance. But if not we can use a test for this, similar to Welch in a t-test. Called oneway in R
+
+```{r}
+oneway.test(folate ~ ventilation)
+```
+
+Notice the p-value goes to non-significance. This is due to the fact that the variance in the 3rd group is the largest. 
+
+Note we can also relax variance assumption in pairwise tests, by not using a pooled SD, again finding no significant findings when not constraining the analysis to the constraing on the variances
+
+```{r}
+pairwise.t.test(folate, ventilation, pool.sd = F)
+```
+
+####Plot
+```{r}
+xbar <- tapply(folate, ventilation, mean)
+s <- tapply(folate, ventilation, sd)
+n <- tapply(folate, ventilation, length)
+sem = s/sqrt(n)
+stripchart(folate ~ ventilation, jit = 0.05, pch=16, vert=T)
+arrows(1:3, xbar+1.96*sem, 1:3, xbar-1.96*sem, angle=90, code=3, length=.1)
+lines(1:3, xbar, pch=4, type="b", cex =2)
+```
+
+These are 1.96*SEM for the 96% CI. Note: the rule of thumb that 2 SEM's for a CI does not apply at small group sizes. At group size of 2 has to be 12.7 (see t-crit table). So actually, in this case, using 1.96 is incorrect. Should put a unique confidence interval around each mean based on the group size and appropriate t-crit, such as below:
+```{r}
+n
+qt(c(.025, .975), df=n-1)
+qt(c(.025, .975), df=4)
+```
+
+####Testing for equal variances
+
+This Bartless test is non-robust against departures from normality. Presumes independence of groups.
+```{r}
+bartlett.test(folate ~ ventilation)
+```
+
+####Non-parametric test
+```{r}
+kruskal.test(folate ~ ventilation)
+```
+
+###6.3 Two-way ANOVA
+
+```{r}
+data(heart.rate)
+attach(heart.rate)
+```
+
+Importantly, there is a function gl to generate levels in a balanced design takes number of integers, number of repetitions, and total length as parameters. Can also include labels.
+
+```{r}
+data.frame(hr2 = hr, s2 = gl(9,1,36), time2 = gl(4,9,36, labels = c(0, 30, 60, 120)))
+```
+
+```{r}
+anova(lm(hr ~ subj + time))
+```
+
+####Graphing for repeated measures analysis
+
+Make a "spaghettigram"
+```{r}
+interaction.plot(time, subj, hr)
+interaction.plot(ordered(time), subj, hr)
+
+```
+
+###6.4 Friedman Two-way Non-Parametric Test
+```{r}
+friedman.test(hr ~ time | subj, data = heart.rate)
+```
+
+###6.5 Exercises
+```{r}
+#6.1
+zelazo
+n <- unlist(lapply(zelazo, length))
+outcome <- as.vector(unlist(zelazo))
+#convert to df
+lvls <- gl(4, 6, sum(n))
+ex6.df <- data.frame(outcome = outcome, lvls = lvls)
+anova(lm(outcome ~ lvls, data = ex6.df))
+pairwise.t.test(ex6.df$outcome, ex6.df$lvls, p.adj = "bonferroni")
+
+xbar <- tapply(ex6.df$outcome, ex6.df$lvls, mean)
+s <- tapply(ex6.df$outcome, ex6.df$lvls, sd)
+n <- tapply(ex6.df$outcome, ex6.df$lvls, length)
+sem = s/sqrt(n)
+stripchart(ex6.df$outcome ~ ex6.df$lvls, jit = 0.05, pch=16, vert=T)
+arrows(1:4, xbar+1.96*sem, 1:4, xbar-1.96*sem, angle=90, code=3, length=.1)
+lines(1:4, xbar, pch=4, type="b", cex =2)
+bartlett.test(ex6.df$outcome, ex6.df$lvls)
+```
+
+```{r}
+#6.2
+lung
+attach(lung)
+anova(lm(volume ~ subject + method))
+summary(lm(volume ~ subject + method))
+tapply(volume, method, mean)
+
+pairwise.t.test(volume, method, p.adj = "bonferroni")
+```
+
+```{r}
+#6.3
+kruskal.test(ex6.df$outcome ~ ex6.df$lvls)
+friedman.test(volume ~ method | subject, data = lung)
+```
+
+```{r}
+#6.4
+attach(juul)
+str(juul)
+
+bartlett.test(igf1 ~ tanner)
+bartlett.test(log(igf1) ~ tanner)
+bartlett.test(sqrt(igf1) ~ tanner)
+t.test(sqrt(igf1) ~ tanner)
+
+mod <- na.exclude(lm(igf1 ~ tanner + age))
+mod$residuals
+na.exclude(predict(mod))
+predict(mod)
+
+```

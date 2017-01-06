@@ -1,0 +1,204 @@
+---
+title: "Chapter4-One-and-Two-sample-Tests"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 4: One- and Two-sample Tests
+
+T-tests assume data comes from normal distribution
+```{r}
+daily.intake <- c(5260, 5470, 5640, 6180, 6390, 6515, 6805, 7515, 7515, 8230, 8770)
+sd(daily.intake)
+quantile(daily.intake)
+```
+
+Might want to investigate whether the women's energy intake deviates from a recommended value of 7225
+
+```{r}
+t.test(daily.intake, mu = 7725)
+```
+
+t.test function dynamically generates type of test (one-sided in this case) based on the given parameters
+
+Alternative hypothesis saying "not equal to" indicates it is a two-sided test
+
+Confidence interval is set of hypothetical mean values from which the data do not deviate from significantly.
+
+Other parameters in t.test
+```{r}
+t.test(daily.intake, mu = 7725, alternative = "greater")
+t.test(daily.intake, mu = 7725, alt = "g")
+t.test(daily.intake, mu = 7725, alt = "g", conf.level = .99)
+```
+
+###4.2 Wilcox test
+
+```{r}
+wilcox.test(daily.intake, mu = 7725)
+
+```
+
+###4.3 Two-sample T-test
+Calculates whether two samples can be assumed to come from distributions with the same mean
+
+t = x2-x1/SEDM (Standard error of difference of means)
+
+SEDM = sqrt(SEM_1 + SEM_2)
+
+Can also use a Welch test, which is usually safer. Typically yields same results as t-test except when there are major differences in size and/or variability of groups.
+
+```{r}
+library(ISwR)
+data(energy)
+attach(energy)
+energy
+```
+
+Default is Welch's output
+```{r}
+t.test(expend ~ stature)
+```
+
+Which does not assume equal variances (this results in a fragmented df)
+
+
+If you assume equal variances
+```{r}
+t.test(expend ~ stature, var.equal = T)
+```
+Notice now the df is not fragmented. And p-value has decreased. And confidence interval has narrowed a little. Most changes are only slight. 
+
+###4.4 Comparison of variances
+```{r}
+var.test(expend ~ stature)
+```
+Non-sig p-value indicates variances are equal
+
+Note the confidence interval is quite wide
+With small group sizes like these, assumption of equal variances is largely a matter of belief. 
+
+Note: this test is NOT robust to departures from normality in the sample
+
+Note: this ASSUMES independent samples and this SHOULD NOT be used with paired-sample t-tests
+
+```{r}
+wilcox.test(expend ~ stature)
+```
+
+If you doubt the normality of your data, can use the non-parametric test. W statistic is sum of ranks minus its theoretical minimum. 
+
+###4.4 Paired sample
+
+```{r}
+data(intake)
+attach(intake)
+intake
+post-pre
+```
+
+All women have more post levels than pre. Is it significant?
+
+```{r}
+t.test(pre, post, paired = T)
+```
+
+Wilcox test for the non-parametric
+```{r}
+wilcox.test(pre, post, paired = T)
+```
+
+###4.5 Exercises
+```{r}
+#1. 
+data(react)
+str(react)
+hist(react) #look normally distributed
+t.test(react) #is significantly different from 0
+```
+
+```{r}
+#2
+data(vitcap)
+attach(vitcap)
+str(vitcap)
+t.test(vital.capacity ~ group, conf.level = .99)
+var.test(vital.capacity ~ group)
+t.test(vital.capacity ~ group, conf.level = .99, var.equal = T)
+```
+
+```{r}
+#3 Perform both using non-parametric
+wilcox.test(react)
+wilcox.test(vital.capacity ~ group, conf.level = .99)
+```
+
+```{r}
+#4. Perform graphical check for paired data
+
+#make a Bland-Altman plot (identical to Tukey mean difference plot)
+
+#differences against mean of differences
+mn <- (intake$pre + intake$post)/2
+dif <- intake$post - intake$pre
+
+plot(mn, dif, main="Bland-Altman plot", xlab="mean of pre & post", ylab="difference between pre & post", ylim = c(-3000, 0))
+abline(h = mean(dif), lty = 1)
+abline(h = mean(dif) + 1.96*sd(dif), lty = 2)
+abline(h = mean(dif) - 1.96*sd(dif), lty = 2)
+```
+
+```{r}
+#5. Shapiro test
+shapiro.test(react)
+
+#remove outliers
+mean(react)
+sd(react)
+react.out.crit.upper <- mean(react) + 2.5*sd(react)
+react.out.crit.lower <- mean(react) - 2.5*sd(react)
+react.no.outliers <- subset(react, react < react.out.crit.upper & react > react.out.crit.lower)
+
+shapiro.test(react.no.outliers)
+
+##removing outliers doesn't helpash
+```
+
+```{r}
+#6. 
+attach(ashina)
+t.test(vas.active, vas.plac, paired = T)
+t.test(vas.active, vas.plac) ##ignoring matching
+
+t.test(vas.active-vas.plac ~ grp)
+
+##taking group into account
+##if no treatment effect?
+
+## taking group into account:
+## if no treatment effect? 
+
+with(ashina,
+     t.test( (vas.active-vas.plac)[grp==1],  
+             -(vas.active-vas.plac)[grp==2])) 
+          # p-value = 0.005807
+
+p1 = with(ashina,
+     t.test( (vas.active-vas.plac)[grp==1]  , alt="l")   )$p.v  # p-value = 0.01024195
+p2 = with(ashina,
+     t.test( (vas.active-vas.plac)[grp==2]  , alt="l")   )$p.v  # p-value = 0.07598672
+## fisher combined p value:
+1-pchisq(-2*log(p1*p2), df=2*2)  ###   0.006349341
+```
+
+```{r}
+#7.
+
+n = 20000
+ts.one.sample <- replicate(n,t.test(rnorm(25))$p.value)
+ts.two.sample <- replicate(n, t.test(rnorm(25), rnorm(25, mean = .5, sd = .5))$p.value)
+sum(ts.one.sample > .05)/n #note distribution of p-values when there is no effect
+sum(ts.two.sample > .05)/n
+hist(ts.one.sample) #note distribution of p-values when there is no effect
+hist(ts.two.sample) #note distribution of p-values when there is an effect
+```

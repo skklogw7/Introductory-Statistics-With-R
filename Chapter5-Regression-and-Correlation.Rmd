@@ -1,0 +1,207 @@
+---
+title: "Chapter5-Regression-and-Correlation"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 5: Regression and Correlation
+```{r}
+data("thuesen")
+attach(thuesen)
+summary(lm(short.velocity ~ blood.glucose))
+```
+Regression is a formula that minimizes the sum of squared residuals
+
+Can compute a t-test on a parameter (Beta) by dividing it by its standard error
+
+Residuals summary gives you rough idea of distribution of residuals... Median should be near 0, and min and max should be roughly equidistant from 0
+
+F-statistic is just the test on the hypothesis that the single beta is greater than 0. Not interesting in the simple linear regression model (becomes interesting later with multiple predictors)
+
+F-test is identical to the square of the t-test in any model with 1 df
+
+```{r}
+plot(blood.glucose, short.velocity)
+abline(lm(short.velocity ~ blood.glucose))
+```
+
+###Fitted vs Residuals plots
+```{r}
+lm.velo <- lm(short.velocity ~ blood.glucose)
+fitted(lm.velo) #predicted values from regression line
+```
+
+```{r}
+resid(lm.velo) #differences between observed and fitted
+```
+
+Note: missing values are important here. Notice there is no 16th observation
+
+```{r}
+abline(lm.velo) #line is fit, but is missing an observation
+```
+
+```{r}
+plot(blood.glucose, short.velocity)
+lines(blood.glucose, fitted(lm.velo))
+lines(blood.glucose[!is.na(short.velocity)], fitted(lm.velo), type = "l")
+```
+
+Note: this is.na fix will work if just missing data in one of hte variables, but becomes clumsy if missing data in many of the variables. So use complete cases instead
+
+```{r}
+cc <- complete.cases(thuesen)
+```
+
+But even better method is na.exclude, which can be set as an option OR as a parameter in the regression syntax
+
+```{r}
+options(na.action = na.exclude)
+lm.velo <- lm(short.velocity ~ blood.glucose)
+fitted(lm.velo)
+```
+
+Add in segments from the observed values to the regression line
+```{r}
+segments(blood.glucose, fitted(lm.velo), blood.glucose, short.velocity)
+```
+
+Plot of residuals vs fitted
+```{r}
+plot(fitted(lm.velo), resid(lm.velo))
+abline(h = 0)
+qqnorm(resid(lm.velo))
+```
+
+###Confidence bands
+
+Short and wide bands
+ - Short band is confidence about the line itself
+ - Wide band (prediction band) is confidence about future values... limit approaches true line +-2 standard deviations
+ 
+```{r}
+predict(lm.velo) #predicted values
+predict(lm.velo, int = "c") #with CI limits
+predict(lm.velo, int = "p") #with PI limits
+```
+
+Build a prediction frame to plot bands
+```{r}
+pred.frame <- data.frame(blood.glucose=4:20)
+pc <- predict(lm.velo, int = "c", newdata = pred.frame)
+pp <- predict(lm.velo, int = "p", newdata = pred.frame)
+plot(blood.glucose, short.velocity, ylim = range(short.velocity, pp, na.rm=T))
+pred.gluc <- pred.frame$blood.glucose
+matlines(pred.gluc, pc, lty = c(1,2,2), col="black")
+matlines(pred.gluc, pp, lty = c(1,3,3), col="black")
+```
+
+ts = replicate(1000,t.test(rnorm(10),rnorm(10))$statistic)
+range(ts)
+pts = seq(-4.5,4.5,length=100)
+plot(pts,dt(pts,df=18),col='red',type='l')
+lines(density(ts))
+
+
+###5.4 Correlation
+
+A correlation is a scale-invariant measure of association between two random variables
+
+Can be tested by transforming correlation to a t-distributed variable... will give identical results to hypothesis test of beta coefficient
+
+```{r}
+cor(blood.glucose, short.velocity)
+cor(blood.glucose, short.velocity, use = "complete.obs")
+```
+
+Can get a correlation matrix
+```{r}
+cor(thuesen, use = "complete.obs")
+```
+
+```{r}
+cor.test(blood.glucose, short.velocity)
+```
+
+Notice same t-value and p-value as regression
+```{r}
+summary(lm(blood.glucose ~ short.velocity))
+```
+
+R-squared is the squared value of Pearson's R
+Standardized beta coefficient is the same as Pearson's R
+
+For every 1 SD increase in X, there is a [Pearson's R] increase in SD of Y
+
+```{r}
+summary(lm(scale(blood.glucose) ~ scale(short.velocity)))
+cor(blood.glucose, short.velocity, use = "complete.obs")
+```
+
+Non-parametric
+
+Spearman's rho (p) - based on rank order
+
+Advantage - invariant to monotonic transformations of the coordinates
+
+Disadvantage - not clear how to interpret
+```{r}
+cor.test(blood.glucose, short.velocity, use = "complete.obs", method = "spearman")
+```
+
+Kendall'S Tau (T)
+
+Checks if pairs of X's and Y's are discordant and concordant.... sums all pairs. Under independence should be equal number of discordant and concordant pairs. Computationally intensive.
+
+```{r}
+cor.test(blood.glucose, short.velocity, use = "complete.obs", method = "kendall")
+```
+
+Kendall is a little more easily interpretable than Spearman, but other than that, there is no reason to prefer one vs the other
+
+###5.5 Exercises
+```{r}
+#1
+data(rmr)
+attach(rmr)
+plot(metabolic.rate, body.weight)
+summary(lm(metabolic.rate ~ body.weight))
+811.2267 + 70*7.0595 #predicted mb rate for someone of 70g
+confint(lm(metabolic.rate ~ body.weight))
+```
+
+```{r}
+#2
+attach(juul)
+str(juul)
+summary(lm(sqrt(igf1) ~ age, data = subset(juul, age > 25)))
+```
+
+```{r}
+#3
+attach(malaria)
+str(malaria)
+par(mfrow = c(1,2))
+plot(age, ab)
+plot(age, log(ab))
+
+summary(lm(ab ~ age))
+plot(lm(ab ~ age))
+summary(lm(log(ab) ~ age))
+plot(lm(log(ab) ~ age))
+```
+
+```{r}
+#4
+plot.correlation <- function(p){
+
+x <- rnorm(1000)
+y <- rnorm(1000, mean = p*x, sd = sqrt(1-p^2))
+plot(x, y)
+}
+
+par(mfrow = c(3, 3))
+plot.correlation(.5)
+plot.correlation(seq(-1,1, by = .33))
+lapply(seq(-1,1, by = .33), plot.correlation)
+```

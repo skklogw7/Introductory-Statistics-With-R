@@ -1,0 +1,242 @@
+---
+title: "Chapter7-Tabular-Data"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 7: Tabular data
+
+###7.1 Single proportions
+
+Usually based on the binomial distribution. With large sample sizes can approximate normal distribution with N*p as mean and variance as N*p*(1-p)
+
+The test for p = p0 can be based on a test statistic mu
+
+mu = (x - Np0)/sqrt(Np0(1-p0))
+
+which has a normal distribution with 0,1 as mean and sd or X^2 (chi-squared which has a ) chi-squared distribution with 1 degree of freedom
+
+```{r}
+prop.test(39, 215, p = .15)
+```
+
+39 of 215 patients have a disease. Tests the null hypothesis of there being a .15 probability of having the disease
+
+```{r}
+binom.test(39, 215, p = .15)
+```
+
+Basically same as binom
+
+###7.2 Two independent proportions
+d = x1/N1 - x2/N2
+Vp(d) = (1/N1 + 1/N2) * p(1-p)
+
+To test that p1 = p2, plug in p^hat ((x1 + x2)/(n1 + n2)) into variance formula and test using mu = d/sqrt(Vphat(d))
+
+```{r}
+lewin.machine.success <- c(9,4)
+lewin.machine.total <- c(12, 13)
+
+phat <- sum(lewin.machine.success)/sum(lewin.machine.total)
+
+vpdhatd <- (sum(1/lewin.machine.total))*phat*(1-phat)
+d <- diff(lewin.machine.success/lewin.machine.total)
+
+mu = d/sqrt(vpdhatd)
+mu
+```
+
+
+```{r}
+prop.test(lewin.machine.success, lewin.machine.total, correct=F)
+```
+
+Note, the Yates correction is not applied here, which results in a slightly wider confidence interval than otherwise obtained. Can improve by making the Yates correction, which shrinks the CI in the direction of the expected value (remember this is a binomial approximation to the normal distribution). 
+
+```{r}
+prop.test(lewin.machine.success, lewin.machine.total, correct=T)
+```
+
+####Fisher's exact test
+
+Notice that the correcte and uncorrected tests above yield different results (and p values)... this is due to approximation. To get the exact p-value, use Fisher's exact test. Based on combanitorics. The distribution is known as a *hypergeometric distribution*.
+
+```{r}
+matrix(c(9, 4, 3, 9), 2)
+lewin.machine <- matrix(c(9, 4, 3, 9), 2)
+fisher.test(lewin.machine)
+```
+
+NOTE: second column in matrix is number of negative outcomes, not total outcomes
+
+####Chi-squared test
+
+Works with data in matrix form like the Fisher test
+```{r}
+chisq.test(lewin.machine)
+```
+Gives same result as prop.test
+
+###7.3 k proportions
+
+Usually a group of proportions that tests for increasing or decreasing trends with group size. Example is women with C sections and shoe size
+
+```{r}
+casear.shoe <- matrix(c(5, 7, 6, 7, 8, 10, 17, 28, 36, 41, 46, 140), nrow = 2, byrow = T)
+
+colnames(caesar.shoe) <- c("<4", "4", "4.5", "5", "5.5", "6+")
+rownames(caesar.shoe) <- c("Yes", "No")
+caesar.shoe
+```
+
+To test for differences in proportions, uses a weighted sums of squares for proportions in each group relative to the overall proportion for all groups.
+
+To do a k proportion test with prop.test need to make a vector of successes and vector of totals
+
+```{r}
+caesar.shoe.yes <- caesar.shoe["Yes",]
+caesar.shoe.total <- margin.table(caesar.shoe,2)
+prop.test(caesar.shoe.yes, caesar.shoe.total)
+```
+
+Notice the effect is non-significant. However, similar to a linear contrast, we can test a trend (increasing vs decreasing) in the proportions.
+
+```{r}
+prop.trend.test(caesar.shoe.yes, caesar.shoe.total)
+```
+
+And in this case, you can think of the trend test as a subdivision of the test for equal proportions (X^2 = 9.2874) into a contribution of a linear effect (X^2 = 8.0237) on 1 df and deviations from the linear trend (X^2 = 1.2637) on 4df. 
+
+So in the case of the equal proportions test, you could say it wastes df's on testing for deviations in directions that we're not interested in. 
+
+###7.4 r X c Tables
+
+Tests for dependence between rows and columns. Two categorical variables. Assesses whether being in any row is dependent on being on any column or vice versa.
+
+If independent, probability of being in any one cell (ij) is equal to the probability of being in row (i) * column(j)
+
+Cell values:
+Eij = ni. * nj./n..
+
+X^2 = (sum (O-E)^2)/E
+Has chi-squared (X^2) distribution with (r-1)*(c-1) dfs
+
+```{r}
+caff.marital <- matrix(c(652, 1537, 598, 242, 36, 46, 38, 21, 218, 327, 106, 67), nrow=3, byrow=T)
+colnames(caff.marital) <- c("0", "1-150", "151-300", ">300")
+rownames(caff.marital) <- c("Married", "Previously married", "Single")
+caff.marital
+chisq.test(caff.marital)
+```
+
+Highly significant, so it contradicts the hypothesis of independence.
+
+But how to break down further?
+
+```{r}
+E <- chisq.test(caff.marital)$expected
+O <- chisq.test(caff.marital)$observed
+(O-E)^2/E
+```
+
+Particularly large contributions from abstaining singles. Also distribution of previously married is shifted in favor of a larger intake
+
+###7.5 Exercises
+```{r}
+#7.1
+#7.2 are the two proportions of disease the same?
+disease.death <- c(210, 122)
+disease.total <- c(747, 661)
+        
+prop.test(disease.death, disease.total, correct=F)
+prop.test(disease.death, disease.total, correct=T)
+
+disease.death.props <- matrix(c(210, 122, (747-210), (661-122)), 2)
+colnames(disease.death.props) <- c("Death", "Non-death")
+rownames(disease.death.props) <- c("Eastcoast", "Westcoast")
+fisher.test(disease.death.props)
+```
+
+```{r}
+#7.3
+ulcer.healed <- c(23, 18)
+ulcer.total <- c(30, 31)
+        
+matrix(c(ulcer.healed, ulcer.total-ulcer.healed), 2)
+
+ulcer.healed.props <- matrix(c(ulcer.healed, ulcer.total-ulcer.healed), 2)
+colnames(ulcer.healed.props) <- c("Healed", "Non-healed")
+rownames(ulcer.healed.props) <- c("Pirenzepine", "Trithiozine")
+fisher.test(ulcer.healed.props)
+chisq.test(ulcer.healed.props)
+
+prop.test(ulcer.healed, ulcer.total, correct=F)
+prop.test(ulcer.healed, ulcer.total, correct=T)
+```
+
+```{r}
+#7.4
+eggs <- data.frame(Period = rep(c("Sept20-Feb4", "Feb4-Apr10"),each = 2), Size = rep(c("A", "B"), 2), Total = c(54, 200, 60, 70), Broken = c(4, 15, 4, 1), Cracked = c(8, 28, 9, 7), Damaged = eggs$Broken+eggs$Cracked)
+```
+
+To do a k proportion test with prop.test need to make a vector of successes and vector of totals
+
+```{r}
+eggs.damaged <- eggs[,"Damaged"]
+eggs.total <- eggs[,"Total"]
+prop.test(eggs.damaged, eggs.total)
+```
+
+
+```{r}
+prop.trend.test(eggs.damaged, eggs.total)
+```
+
+Doesn't appear to be a significant difference in proportions. But what about collapsing across Size?
+
+subset(eggs, Period == "Sept20-Feb4")
+library(dplyr)
+eggs$Size <- as.factor(eggs$Size)
+eggs.table <- eggs %>% group_by(Period) %>% summarise(sum(Damaged), sum(Total))
+
+```{r}
+eggs.damaged <- eggs.table[2][[1]]
+eggs.total <- eggs.table[3][[1]]
+prop.test(eggs.damaged, eggs.total)
+```
+
+Try just subset of A
+```{r}
+eggs.a <- subset(eggs, Size == "A")
+eggs.table.a <- eggs.a %>% group_by(Period) %>% summarise(sum(Damaged), sum(Total))
+
+eggs.damaged.a <- eggs.table.a[2][[1]]
+eggs.total.a <- eggs.table.a[3][[1]]
+prop.test(eggs.damaged.a, eggs.total.a)
+```
+
+Try just subset of B
+```{r}
+eggs.b <- subset(eggs, Size == "B")
+eggs.table.b <- eggs.b %>% group_by(Period) %>% summarise(sum(Damaged), sum(Total))
+
+eggs.damaged.b <- eggs.table.b[2][[1]]
+eggs.total.b <- eggs.table.b[3][[1]]
+prop.test(eggs.damaged.b, eggs.total.b)
+```
+
+Marginally significant at B level, but not A level
+
+```{r}
+#7.5
+pts <- seq(0,1, by = .001)
+
+p.val.vec <- c(1:length(pts))
+
+for(i in seq_along(pts)){
+p.val.vec[i] <- binom.test(3, 15, pts[i], alternative="two.sided")$p.value
+}
+
+plot(pts,p.val.vec,col='green',type='l', xlab = "Underlying Probability of Success", ylab = "P(3 Successes in 15 Trials) | Null")
+```

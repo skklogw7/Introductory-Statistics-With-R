@@ -1,0 +1,32 @@
+---
+title: "Chapter12-Survival-Analysis"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+
+#Chapter 12: Survival Analysis
+
+Survival function measures how likely it is for somethign to be alive at a moment. It is really 1 - cumulative distribution function
+
+Hazard function (or force mortality) gives probability of dying with time interval t, given subject is alive at time t
+
+```{r}
+library(survival)
+```
+
+Routines in survival package work with Surf objects, which contain timing and censoring information
+
+```{r}
+data(melanom)
+attach(melanom)
+names(melanom)
+```
+
+Status: 1 means dead, 2 means alive on Jan 1 1978, 3 means dead from other causes. Create survival object in which 2 and 3 are treated as censorings.
+
+```{r}
+Surv(days, status == 1)
+```
+
+survfit(Surv(days, status == 1))

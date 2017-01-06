@@ -1,0 +1,231 @@
+---
+title: "Chapter3-Descriptive-Stats-and-Graphics"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 3: Descriptive Statistics and Graphics
+
+```{r}
+x <- rnorm(50)
+mean(x)
+sd(x)
+var(x)
+median(x)
+quantile(x)
+```
+
+###Percentiles
+```{r}
+quantile(x)
+
+pvec <- seq(0, 1, 0.1)
+pvec
+
+quantile(x, pvec) #deciles
+
+quantile(x, c(.5, .55))
+```
+
+###Missing values
+```{r}
+library(ISwR)
+data(juul)
+attach(juul)
+mean(igf1)
+```
+
+```{r}
+mean(igf1, na.rm=T)
+sum(!is.na(igf1)) 
+
+##length function does not exclude NA's
+sum(igf1, na.rm=T)/length(igf1)
+sum(igf1, na.rm=T)/sum(!is.na(igf1))
+
+summary(igf1)
+```
+
+##Mending variables
+```{r}
+summary(juul)
+##change menarche, sex, and tanner to factors
+detach(juul)
+juul$sex <- factor(juul$sex, labels = c("M", "F"))
+juul$menarche <- factor(juul$menarche, labels = c("No", "Yes"))
+juul$tanner <- factor(juul$tanner, labels = c("I", "II", "III", "IV", "V"))
+attach(juul)
+summary(juul)
+
+
+##another way
+juul <- transform(juul,
+sex = factor(sex, labels = c("M", "F")),
+menarche = factor(menarche, labels = c("No", "Yes")),
+tanner = factor(tanner, labels = c("I", "II", "III", "IV", "V")))
+```
+
+###3.2 Graphical displays
+```{r}
+hist(x)
+```
+
+```{r}
+mid.age <- c(2.5, 7.5, 13, 16.5, 17.5, 19, 22.5, 44.5, 70.5)
+acc.count <- c(28, 46, 58, 20, 31, 64, 149, 316, 103)
+age.acc <- rep(mid.age, acc.count)
+hist(age.acc)
+
+brk <- c(0, 5, 10, 16, 17, 18, 20, 25, 60, 80) ##notice the endpoints of these customized breakpoints include the range of the mid.age variable
+hist(age.acc, breaks= brk)
+
+##better to diplay densities on y-axis rather than counts with freq = F
+```
+
+###3.2 Plotting the CDF
+
+Remember CDF is defined as fraction of data smaller than or equal to x
+```{r}
+n <- length(x)
+plot(sort(x), 1:n/n, type = "s", ylim = c(0,1))
+```
+
+####QQplots
+```{r}
+qqnorm(x)
+```
+
+####Boxplots
+```{r}
+data(IgM)
+par(mfrow=c(1,2))
+boxplot(IgM)
+boxplot(log(IgM))
+par(mfrow=c(1,1))
+```
+
+```{r}
+data("red.cell.folate")
+attach(red.cell.folate)
+str(red.cell.folate)
+tapply(folate, ventilation, mean)
+tapply(folate, ventilation, length)
+tapply(folate, ventilation, sd)
+
+xbar <- tapply(folate, ventilation, mean)
+s <- tapply(folate, ventilation, sd)
+n <- tapply(folate, ventilation, length)
+
+cbind(mean = xbar, stdev = s, n = n)
+```
+
+What about with missing values
+```{r}
+tapply(igf1, tanner, mean)
+tapply(igf1, tanner, mean, na.rm = T)
+```
+
+```{r}
+data(energy)
+attach(energy)
+str(energy)
+expend.lean <- expend[stature=="lean"]
+expend.obese <- expend[stature=="obese"]
+```
+
+```{r}
+par(mfrow = c(2,1))
+hist(expend.lean, breaks=10, xlim=c(5, 13), ylim = c(0, 4), col="white")
+hist(expend.obese, breaks=10, xlim=c(5, 13), ylim = c(0, 4), col="grey")
+par(mfrow = c(1,1))
+```
+
+Can use boxplots side by side too
+```{r}
+boxplot(expend ~ stature) ##simply group by factor
+boxplot(expend.lean, expend.obese) ##or use two separate vectors
+##can also use a list of vectors
+stripchart(list(lean = expend.lean, obese = expend.obese))
+```
+
+###3.5 Tables
+```{r}
+caff.marital <- matrix(c(652, 1537, 598, 242, 36, 46, 38, 21, 218, 327, 106, 67), nrow=3, byrow=T)
+caff.marital
+```
+
+If only one row or col parameter is provided, R will automatically add the other number of the undefined parameter.
+
+```{r}
+matrix(c(652, 1537, 598, 242, 36, 46, 38, 21, 218, 327, 106, 67), ncol=4, byrow=T)
+```
+
+
+If parameters provided do not match row and col numbers, will recycle
+
+```{r}
+matrix(c(652, 1537, 598, 242, 36, 46, 38, 21, 218, 327, 106, 67), nrow=24, byrow=T)
+```
+
+Adding names to matrices
+```{r}
+colnames(caff.marital) <- c("0", "1-150", "151-300", ">300")
+rownames(caff.marital) <- c("Married", "Previously married", "Single")
+caff.marital
+```
+
+Working with tables
+```{r}
+attach(juul)
+table(sex)
+table(sex, menarche)
+table(menarche, tanner)
+table(menarche, tanner, sex)
+```
+
+Can transpose any table with t function
+```{r}
+t(table(menarche, tanner))
+aperm(table(menarche, tanner, sex)) ##use aperm for multiway
+```
+
+Can calculate marginal tables
+```{r}
+tanner.sex <- table(tanner, sex)
+margin.table(tanner.sex, 1)
+margin.table(tanner.sex, 2)
+```
+
+Can calculate relative frequencies
+```{r}
+prop.table(tanner.sex, 1) ##second argument is what each row proportion sums to
+prop.table(tanner.sex, 1)*100
+```
+
+```{r}
+prop.table(tanner.sex, NULL)
+tanner.sex/sum(tanner.sex)
+```
+
+### Graphs for tables
+```{r}
+total.caff <- margin.table(caff.marital, 2)
+barplot(total.caff, col="white")
+```
+
+```{r}
+par(mfrow = c(2,2))
+barplot(caff.marital, col="white")
+barplot(t(caff.marital), col="white")
+barplot(t(caff.marital), col="white", beside = T)
+barplot(prop.table(t(caff.marital), 2), col = "white", beside = T)
+par(mfrow = c(1,1))
+
+```
+
+Prettify
+```{r}
+barplot(prop.table(t(caff.marital), 2), beside = T, legend.text = colnames(caff.marital), col = c("white", "grey80", "grey50", "black"))
+
+dotchart(t(caff.marital))
+```

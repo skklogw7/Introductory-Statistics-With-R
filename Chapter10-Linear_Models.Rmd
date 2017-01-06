@@ -1,0 +1,563 @@
+---
+title: "Chapter10-Linear-Models"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 10: Linear Models
+
+This chapter is a snapshot of other extensions of linear models
+
+First is dummy coding. In this case, 0 to 1 doesn't represent a 1-unit increase, but rather, the difference between one group and another. 
+
+###11.1 Polynomial regression
+
+Can fit higher-order terms into model (quadratic, etc.). Obviously this means you are modeling a non-linear relationship, but this doesn't matter; importantly, so long as the relationship between the terms and the outcome are linear, that's what matters. And as long as the terms are not linearly related to the other terms.
+
+Note: these can be difficult because near-collinearity between terms make the fit numerically unstable.
+
+```{r}
+data(cystfibr)
+attach(cystfibr)
+summary(lm(pemax ~ height + I(height^2)))
+```
+
+Note must use I syntax to protect the power symbol from throwing off the model
+
+We find a significant deviation from linearity. 
+
+Plot the fitted curve with prediction and confidence bands
+```{r}
+pred.frame <- data.frame(height = seq(110, 180, 2))
+lm.pemax.hq <- lm(pemax ~ height + I(height^2))
+predict(lm.pemax.hq, interval="pred", newdata=pred.frame)
+
+pp <- predict(lm.pemax.hq, newdata=pred.frame, interval = "pred")
+pc <- predict(lm.pemax.hq, newdata=pred.frame, interval = "conf")
+plot(height, pemax, ylim = c(0,200))
+matlines(pred.frame$height, pp, lty=c(1,2,2), col="black")
+matlines(pred.frame$height, pc, lty=c(1,3,3), col="black")
+
+```
+
+Notice the fitted line is quadratic. Also note the prediction limits are wide for short heights... very little points to justify these margins... exercise caution. Prediction intervals should only be used with much more data than this. 
+
+###10.2 Regression Through Origin
+
+Sometimes makes sense to assume that a regression line passes through the origin (0,0). To do this:
+
+```{r}
+x <- runif(20)
+y <- 2*x*rnorm(20, 0, 0.3)
+summary(lm(y~x))
+```
+
+Now force intercept to be 0, resulting in a slope estimate with substantially improved accuracy.
+
+```{r}
+summary(lm(y~x-1))
+```
+
+Also note R^2 is larger in second model... this does NOT mean more of the variation is explained in second model; it means the definition of R^2 itself changes. Most easily seen from ANOVA tables
+
+```{r}
+anova(lm(y~x))
+anova(lm(y~x-1))
+```
+
+###10.3 Design matrices and dummy variables
+
+```{r}
+data(cystfibr)
+attach(cystfibr)
+model.matrix(pemax ~ height + weight)
+lm(pemax ~ height + weight)
+
+47.3547 + (109*0.1468) + (13.1*1.0244)
+lm(pemax ~ height + weight)$fitted[1]
+```
+
+Note: don't worry about assign attribute at this stage. Just know that if you add the three columns together, weighted by the corresponding regression coefficients, you get exactly the fitted values. Notice that the intercept enters to a column of 1's.
+
+If the same happens for a model containing a factor, this is what happens:
+
+```{r}
+data(red.cell.folate)
+attach(red.cell.folate)
+model.matrix(folate~ventilation)
+
+lm(folate~ventilation)
+
+red.cell.folate %>% group_by(ventilation) %>% summarise(mean = mean(folate))
+```
+
+Dummy codes! In this case, intercept is mean of reference group
+
+Note, can't go into full detail about other options for coding dummy variables, but contrast and assign attribute basically function for this. Read up more on this for deeper treatment (Venables and Ripley, 2002)
+
+
+###10.4 Linearity Across Groups
+
+Sometimes you have to treat continuous variables as factors. For example, binning 'age' into age ranges (0-10, 11-20, etc.)
+```{r}
+data(fake.trypsin)
+attach(fake.trypsin)
+summary(fake.trypsin)
+
+anova(lm(trypsin ~ grpf))
+anova(lm(trypsin ~ grp))
+```
+
+Here, grpf is a factor and grp is a linear. Normally, it would not make sense to treat a factor level as a linear, but in this case it makes sense because each grp level equals the same number of years (thus the midpoints of each of the group levels are equidistant, so treating it as linear works). 
+
+Notice each model has roughly the same residual mean square error, suggesting each describes the data equally well. A good indicator of model fit to the data is RMSE. Can formally test whether the linear model is better than the model with the group means, however. 
+```{r}
+model1 <- lm(trypsin ~ grpf)
+model2 <- lm(trypsin ~ grp)
+anova(model1, model2)
+```
+
+Non-significant p-value, suggesting one is not better than the other. Note: this only works when one model is a sub-model of the other, which it is here because the linear model is defined as a restriction on the group means. 
+
+Can also assess this using addition
+```{r}
+anova(lm(trypsin ~ grp + grpf))
+```
+
+Here the grpf parameter describes the CHANGE in sum of squares from expanding from 1 to 5 parameters. 
+
+```{r}
+xbar.trypsin <- tapply(trypsin, grpf, mean)
+stripchart(trypsin~grp, jitter=.1, vertical=T, pch=20)
+lines(1:6, xbar.trypsin, type="b", pch=4, cex=2, lty=2)
+abline(lm(trypsin~grp))
+```
+
+Instead of generating fake data, can use just the vector and apply a group with n weights for each. Do as follows:
+
+```{r}
+n <- c(32, 137, 38, 44, 16, 4)
+tryp.mean <- c(128, 152, 194, 207, 215, 218)
+tryp.sd <- c(50.9, 58.5, 49.3, 66.3, 60, 14)
+gr <- 1:6
+anova(lm(tryp.mean~gr + factor(gr), weights=n))
+```
+
+```{r}
+identical(fake.trypsin[,1], trypsin)
+```
+
+Note the residuals are zero. Same model as before (the fake data)
+
+```{r}
+anova(lm(trypsin ~ grp + grpf))
+model <- anova(lm(tryp.mean~gr + factor(gr), weights=n))
+```
+
+You can fix this by removing the factor(gr) term, but this is not what you want because it removes the within-group variation. So, instead, have to add variability info manuallly.
+
+```{r}
+sum(tryp.sd^2*(n-1))
+model.df <- sum(n-1)
+model.gr.ms <- sum(tryp.sd^2*(n-1))/sum(n-1)
+```
+
+There is no way to update the ANOVA table, but you can do the calculations fairly easily with the provided numbers.
+
+```{r}
+model$`Mean Sq`[1]/model.gr.ms #F statistic for gr
+1-pf(model$`Mean Sq`[1]/model.gr.ms, model$Df[1], model.df) #p-value
+model$`Mean Sq`[2]/model.gr.ms #F statistic for factor(gr)
+1-pf(model$`Mean Sq`[2]/model.gr.ms, model$Df[2], model.df) #p-value
+```
+
+###10.5 Interactions
+Assumption of multiple regression is that terms act additively on the response. Importantly, this doesn't mean that linear models cannot describe non-additivity (interaction terms for example can do this by specifying that one term can have a different effect on the response depending on the levels of other terms).
+
+
+```{r}
+data(coking)
+attach(coking)
+anova(lm(time~width*temp))
+```
+
+Interaction is significant. Here is why:
+```{r}
+tapply(time, list(width, temp), mean)
+```
+
+###10.7 ANCOVA
+
+```{r}
+data(hellung)
+hellung$glucose <- factor(hellung$glucose, labels = c("Yes", "No"))
+attach(hellung)
+plot(conc, diameter, pch=as.numeric(glucose))
+```
+
+Using pch as numeric makes the plot divided by graphic
+
+```{r}
+legend(locator(1), legend = c("glucose", "no glucose"), pch=1:2)
+```
+
+```{r}
+plot(conc, diameter, pch=as.numeric(glucose), log = "x")
+```
+Make x-axis log-scaled. Data is now more linear. 
+
+Can also make log-log plot
+```{r}
+plot(conc, diameter, pch=as.numeric(glucose), log = "xy")
+```
+
+
+Note: to add ablines to a log-transformed axis, function abline will interpret data as if it is on the normal coordinate system So, have to add lines after building a linear model with log10-transformed terms To do this, first split the data:
+
+```{r}
+tethym.gluc <- hellung[glucose == "Yes",]
+tethym.nogluc <- hellung[glucose == "No",]
+lm.gluc <- lm(log10(diameter) ~ log10(conc), data = tethym.gluc)
+lm.nogluc <- lm(log10(diameter) ~ log10(conc), data = tethym.nogluc)
+abline(lm.gluc)
+abline(lm.nogluc)
+```
+
+```{r}
+summary(lm.gluc)
+summary(lm.nogluc)
+```
+
+Quick assessment of slopes shows there is difference in slope
+
+```{r}
+diff.slope.estimates <- -0.05320 - -0.059677
+diff.slope.estimates <- summary(lm.gluc)$coef[2,1] - summary(lm.nogluc)$coef[2,1]
+
+sqrt(0.004125^2 + 0.00272^2) #se...
+
+se.slopes <- sqrt(summary(lm.gluc)$coef[2,2]^2 + summary(lm.nogluc)$coef[2,2]^2)
+
+diff.slope.estimates/se.slopes #t.test of slope differences
+```
+
+Probably can assume slopes are the same. But let's test it:
+
+```{r}
+summary(lm(log10(diameter) ~ log10(conc) * glucose))
+```
+
+Coefficients are read as:
+
+1) 1.63 intercept
+2) -.053196 * log10(conc)
+3) .003418, but only for cultures WITHOUT glucose
+4) -.006480 * log10(conc) but only for cultures WITHOUT glucose
+
+Thus, there are two models:
+
+With glucose: log10(diameter) =  1.631344 - 0.053196*log10(conc)
+Without glucose: log10(diameter) =  (1.631344 + .003418) - (0.053196 + .006480) *log10(conc)
+
+Comparing these betas and intercept to previous (separate) models shows that they are the same. Standard errors are a little different because they used a pooled variance in the latter. Note: t value of 1.344 is basically the same as the 1.3 from previous regression line comparison. 
+
+log10(conc):glucoseNo of .006480 is the same as 
+
+```{r}
+diff.slope.estimates
+```
+
+
+Now fit an additive model (book doesn't explain why to do this)
+```{r}
+summary(lm(log10(diameter) ~ log10(conc) + glucose))
+```
+Coefficients are read as:
+
+1) 1.642132 intercept
+2) -0.055393 * log10(conc)
+3) -0.028238, but only for cultures WITHOUT glucose
+
+With glucose: log10(diameter) =  1.642132 - 0.053196*log10(conc)
+Without glucose: log10(diameter) =  (1.642132 - 0.028238) - 0.055393 *log10(conc)
+
+That is, lines for the two cultures are parallel, but the log diameter for cultures without glucose are .0282 below those with glucose. On the original (non-logarithmic) scale this means the former are 6.3% lower (a constant absolute difference on the logarithmic scale corresponds to constant relative differences on the original scale and 10^-.0282 = .937)
+
+This joint analysis presumes that variance around the regression line is the same in both groups. Should formally test (and should actually have done this before even embarking on the analysis):
+
+```{r}
+var.test(lm.gluc, lm.nogluc)
+```
+
+Now test differences between the two models
+
+```{r}
+anova(lm(log10(diameter) ~ log10(conc) * glucose))
+```
+
+Line with p value of .1853 is an F test of whether the interaction term can be ommitted, leaving just the additive model from the previous test. Previous line refers to whether you can *subsequently* remove glucose, and the one in the first line to removing log10(conc), leaving an empty model. 
+
+Alterantiavely, you can read the table from top to bottom as additing tersm describing more and more of the sums of squares(Type I  SS)
+
+Note, the F statistic on the interaction term (1.807) corresponds to the T-test with statistic of 1.344 (log10(conc):glucoseNo) from previous model. Note: this only applies because there are just two groups. An F test with more would test just that there is a difference among all groups. 
+
+
+```{r}
+anova(lm(log10(diameter) ~ glucose + log10(conc)))
+anova(lm(log10(diameter) ~  log10(conc) + glucose))
+```
+
+Note here the two models are the same (as seen by same residual SS), but partitioning of the SS is not the same
+
+Now compare the ANCOVA to a t-test
+```{r}
+t.test(log10(diameter) ~ glucose)
+```
+
+Note: P value is much less extreme. Still significant, but in smaller datasets this could throw it off. Also note the parameter estimation of .026 which is comparable to the .028 in the ANCOVA. However, the CI is much wider, which means the ANCOVA is more efficient. 
+
+###10.8 Diagnostics
+
+```{r}
+data("thuesen")
+attach(thuesen)
+options(na.action = "na.exclude")
+lm.velo <- lm(short.velocity~blood.glucose)
+par(mfrow = c(2,2), mex=0.6)
+plot(lm.velo)
+par(mfrow=c(1,1), mex=1)
+```
+
+```{r}
+par(mfrow = c(2,2), mex=0.6)
+plot(rstandard(lm.velo))
+plot(rstudent(lm.velo))
+plot(dffits(lm.velo), type="l")
+matplot(dfbetas(lm.velo), type="l", col="black")
+lines(sqrt(cooks.distance(lm.velo)), lwd=2)
+par(mfrow=c(1,1), mex=1)
+```
+
+Rstudent gives "leave out one residuals" in which fitted value is calculated ommitting the current point. If the model is correct, these will follow a (Student's) t distribution
+
+Dffits expresses how much an observations affects the associated fitted value
+
+Function dfbetas gives change in parameters if an observation is excluded, relative to its standard error. It is a matrix, so matplot function is useful.
+
+From all the plots, looks like observation 13 is problematic. So let's look at model with 13 removed.
+
+```{r}
+summary(lm(short.velocity ~ blood.glucose, subset = -13))
+```
+
+Relation practically vanishes! Whole analysis actually hinges on just one observation. Hard to find a good way to present influential observations. But here is one way:
+
+```{r}
+cookd <- cooks.distance(lm(pemax~height + weight))
+cookd <- cookd/max(cookd)
+cook.colors <- gray(1-sqrt(cookd))
+plot(height, weight, bg=cook.colors, pch=21, cex=1.5)
+points(height, weight, pch=1.5)
+```
+
+###10.9 Exercises
+
+```{r}
+#10.2
+attach(tb.dilute)
+anova(lm(reaction ~ logdose + animal))
+
+model1 <- lm(reaction ~ logdose + animal)
+
+tb.dilute$logdose.linear <- as.numeric(as.character(tb.dilute$logdose))
+
+model2 <- lm(reaction ~ logdose.linear + animal)
+anova(model1)
+anova(model2)
+##model1 has lower MSE, suggesting better fit. Is it significantly better?
+anova(model1, model2) #marginally
+anova(lm(reaction ~ logdose.linear + logdose))
+```
+
+In this final model the logdose parameter describes the CHANGE in sum of squares from expanding from 1 to 3 parameters. 
+
+```{r}
+confint(model2, 'logdose.linear', level=0.95)
+```
+
+```{r}
+#10.3
+
+#dummy coding
+a <- gl(2, 2, 8) #generate level
+b <- gl(2, 4, 8)
+x <- 1:8
+y <- c(1:4, 8:5)
+z <- rnorm(8)
+dfa <- data.frame(a, b, x, y, z)
+
+model.matrix(z ~ a * b)
+model.matrix(z ~ a:b)
+
+```
+
+```{r}
+#10.4
+attach(secretin)
+model1 <- lm(gluc ~ person * time)
+model2 <- lm(gluc ~ person + time)
+model3 <- lm(gluc ~ person * time20plus + time)
+model4 <- lm(gluc ~ person * time20plus + time.comb)
+summary(model1)
+summary(model2)
+summary(model3)
+summary(model4)
+```
+
+```{r}
+#10.5
+bp.obese
+attach(bp.obese)
+summary(lm(obese ~ bp + sex))
+bp.obese$sex <- as.factor(bp.obese$sex)
+```
+
+```{r}
+#10.6
+#ancova
+attach(vitcap2)
+anova(lm(vital.capacity ~ group))
+summary(lm(vital.capacity ~ age))
+
+plot(age, vital.capacity, pch=as.numeric(group))
+
+##1 log xy
+plot(age, vital.capacity, pch=as.numeric(group), log = "xy")
+
+vitcapg1 <- vitcap2[group == 1,]
+vitcapg2 <- vitcap2[group == 2,]
+vitcapg3 <- vitcap2[group == 3,]
+lm.g1 <- lm(log10(vital.capacity) ~ log10(age), data = vitcapg1)
+lm.g2 <- lm(log10(vital.capacity) ~ log10(age), data = vitcapg2)
+lm.g3 <- lm(log10(vital.capacity) ~ log10(age), data = vitcapg3)
+
+abline(lm.g1)
+abline(lm.g2)
+abline(lm.g3)
+
+##2 log x
+plot(age, vital.capacity, pch=as.numeric(group), log = "x")
+
+vitcapg1 <- vitcap2[group == 1,]
+vitcapg2 <- vitcap2[group == 2,]
+vitcapg3 <- vitcap2[group == 3,]
+lm.g1 <- lm(vital.capacity ~ log10(age), data = vitcapg1)
+lm.g2 <- lm(vital.capacity ~ log10(age), data = vitcapg2)
+lm.g3 <- lm(vital.capacity ~ log10(age), data = vitcapg3)
+
+abline(lm.g1)
+abline(lm.g2)
+abline(lm.g3)
+
+##3 raw
+plot(age, vital.capacity, pch=as.numeric(group))
+
+vitcapg1 <- vitcap2[group == 1,]
+vitcapg2 <- vitcap2[group == 2,]
+vitcapg3 <- vitcap2[group == 3,]
+lm.g1 <- lm(vital.capacity ~ age, data = vitcapg1)
+lm.g2 <- lm(vital.capacity ~ age, data = vitcapg2)
+lm.g3 <- lm(vital.capacity ~ age, data = vitcapg3)
+
+abline(lm.g1)
+abline(lm.g2)
+abline(lm.g3)
+```
+Clear there are differences in slopes. But are they significant? 
+
+```{r}
+#to test differences among slopes, first generate dummy codes
+library(dummies)
+dat <- data.frame(dummy(vitcap2$group))
+vitcap2 <- cbind(vitcap2, dat)
+
+deatch(vitcap2)
+attach(vitcap2)
+
+summary(lm(log10(vital.capacity) ~ log10(age) + group.1 + group.2 + group.3 + group.1*log10(age) + group.2*log10(age) + group.3*log10(age)))
+
+#then test interactions of dummy codes with other predictor.
+summary(lm(log10(vital.capacity) ~ log10(age) + group.1 + group.2 + group.1*log10(age) + group.2*log10(age)))
+
+#sig dif between log10(age):group1 and log10(age): group3, but not for group 2. double check on plot. indeed, group 2 and 3 have basically the same relationship to age, but group 3 is markedly steeper.
+
+
+#double check with t-test comparisons between slopes
+diff.slope.estimates <- summary(lm.g1)$coef[2,1] - summary(lm.g3)$coef[2,1]
+
+#se...
+
+se.slopes <- sqrt(summary(lm.g1)$coef[2,2]^2 + summary(lm.g3)$coef[2,2]^2)
+
+diff.slope.estimates/se.slopes #t.test of slope differences
+
+#test again comparing group 2 and 3 and you will get a non-significant p value
+```
+
+```{r}
+#10.7
+attach(juul)
+str(juul)
+summary(lm(sqrt(igf1) ~ age))
+
+plot(age, sqrt(igf1), pch=as.numeric(sex))
+
+juulmale <- juul[sex == "M",]
+juulfemale <- juul[sex == "F",]
+
+lm.g1 <- lm(lm(sqrt(igf1) ~ age), data = juulmale)
+lm.g2 <- lm(lm(sqrt(igf1) ~ age), data = juulfemale)
+
+
+abline(lm.g1)
+abline(lm.g2)
+
+diff.slope.estimates <- summary(lm.g1)$coef[2,1] - summary(lm.g2)$coef[2,1]
+
+#se...
+
+se.slopes <- sqrt(summary(lm.g1)$coef[2,2]^2 + summary(lm.g2)$coef[2,2]^2)
+
+diff.slope.estimates/se.slopes #t.test of slope differences
+
+#not significantly different
+```
+
+```{r}
+#10.8
+attach(kfm)
+kfm
+step(kfm, direction = "forward")
+```
+
+```{r}
+#10.9
+juul.sub <- subset(juul, age < 25)
+juul.sub.model <- lm(igf1~age + sex + tanner + age*sex + age*tanner + sex*tanner, data = juul.sub)
+summary(juul.sub.model)
+plot(juul.sub.model$fitted.values, juul.sub.model$age)
+plot(juul.sub.model)
+
+##variance of residuals increases with values of Y
+
+juul.sub.model <- lm(sqrt(igf1)~age + sex + tanner + age*sex + age*tanner + sex*tanner, data = juul.sub)
+plot(juul.sub.model$fitted.values, juul.sub.model$age)
+plot(juul.sub.model)
+##better
+
+juul.sub.model <- lm(log(igf1)~age + sex + tanner + age*sex + age*tanner + sex*tanner, data = juul.sub)
+plot(juul.sub.model$fitted.values, juul.sub.model$age)
+plot(juul.sub.model)
+
+#perhaps sqrt(igf1) is best model to fit? 
+```

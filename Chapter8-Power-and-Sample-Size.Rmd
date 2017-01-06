@@ -1,0 +1,75 @@
+---
+title: "Chapter 8 - Power and the Computation of Sample Size"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 8: Power and the Computation of Sample Size
+
+Plotting rejection vs acceptance regions
+```{r}
+curve(pt(x, 25, ncp =3), from = 0, to = 6)
+abline(v=qt(.975, 25))
+```
+
+Probabilty of getting a value in the acceptance region can be seen from the graph as the intersection between the curve and the vertical line. 
+
+```{r}
+pt(qt(.975, 25), 25, ncp=3) #prob of type II error
+```
+
+Power is just the probability of getting a significant result when there is a real effect. 
+```{r}
+1-pt(qt(.975, 25), 25, ncp=3)
+```
+
+Given a certain power level, compute sample size to detect a 5cm difference in a distribution with a SD of 2cm.
+
+```{r}
+power.t.test(delta = .5, sd=2, sig.level = .01, power = .9)
+```
+
+Delta stands for "true difference"
+
+For one sample, just add one sample parameter
+
+```{r}
+power.t.test(delta = .5, sd=2, sig.level = .01, power = .9, type = "one.sample")
+```
+
+For paired
+```{r}
+power.t.test(delta = .5, sd=2, sig.level = .01, power = .9, type = "paired")
+```
+
+For repeated measures/paired, one pitfall is having to calculate the sd of individuals. Read more about this (p.145). To account for within-person variability, measure the same person multiple times and multiply the SD by sqrt of 2.
+
+```{r}
+power.t.test(delta = 10, sd=10*sqrt(2), sig.level = .05, power = .85, type = "paired")
+
+```
+
+###8.4 Comparisons of proportions
+
+Based on approximations to the normal distribution, so do not trust results if any expected cells counts drop below 5. 
+
+```{r}
+power.prop.test(power = .85, p1 = .15, p2 = .30)
+```
+
+###8.5
+```{r}
+power.t.test(delta = .15, sd=.2, sig.level = .05, power = .8, type = "paired")
+length(ashina[,1])
+
+#Seems legitimate!
+```
+
+```{r}
+power.prop.test(power = .90, p1 = .60, p2 = .75)
+```
+
+```{r}
+curve(pt(x, 25, ncp =3), from = 0, to = 6)
+
+```

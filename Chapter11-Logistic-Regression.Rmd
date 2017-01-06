@@ -1,0 +1,279 @@
+---
+title: "Chapter11-Logistic-Regression"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 11: Logistic Regression
+
+```{r}
+no.yes <- c("No", "Yes")
+smoking <- gl(2, 1, 8, no.yes)
+obesity <- gl(2, 2, 8, no.yes)
+snoring <- gl(2, 4, 8, no.yes)
+n.tot <- c(60, 17, 8, 2, 187, 85, 51, 23)
+n.hyp <- c(5, 2, 1, 0, 35, 13, 15, 8)
+```
+
+Have to fit logistic regression in R with two different ways. One is to specify the data as a matrix and have one column with success, one failure. 
+
+```{r}
+hyp.tbl <- cbind(n.hyp, n.tot-n.hyp)
+```
+
+Fit log reg
+```{r}
+glm.hyp <- glm(hyp.tbl ~ smoking + obesity + snoring, family = binomial("logit"))
+glm.hyp
+```
+
+The other way is to specify the outcome as a proportion (when using proportions, have to also specify weights)
+```{r}
+prop.hyp <- n.hyp/n.tot
+glm(prop.hyp ~ smoking + obesity + snoring, binomial, weights = n.tot)
+```
+
+```{r}
+summary(glm.hyp, corr = T)
+```
+
+####11.2 Analysis of deviance table
+
+```{r}
+anova(glm.hyp, test = "Chisq")
+```
+
+Deviance test gives differences between models as variables are added. Notice based on p values, snoring is not removable. But notice what happens when you re-order the predictors
+
+```{r}
+glm.hyp2 <- glm(hyp.tbl ~ snoring + obesity + smoking, family = binomial("logit"))
+summary(glm.hyp2)
+anova(glm.hyp2, test = "Chisq")
+```
+
+From this you can conclude that smoking is removable
+
+```{r}
+glm.hyp3 <- glm(hyp.tbl ~ snoring + obesity, family = binomial("logit"))
+summary(glm.hyp3)
+anova(glm.hyp3, test = "Chisq")
+```
+
+An alternative method is to use drop1 to remove one variable at a time
+
+```{r}
+drop1(glm.hyp3, test = "Chisq")
+```
+
+Here LRT is likelihood ratio test, another name for the deviance change. Actually there is no more info in the deviance tables than in the z tests in the table of regression coefficients. In practice, unavoidable to use deviance tables (when factors have more than 2 levels, deviance tables are preferred). 
+
+####11.2.2 Trend test connection
+
+```{r}
+data(caesarean)
+caesar.shoe
+shoe.score <- 1:6
+summary(glm(t(caesar.shoe)~shoe.score, binomial))
+```
+
+Note had to use transpose so that matrix stood on its own to be used as response variable by glm
+
+Can also do it in ANOVA
+
+```{r}
+anova(glm(t(caesar.shoe)~shoe.score, binomial))
+```
+
+Compare to trend test with proportions
+
+```{r}
+caesar.shoe.yes <- caesar.shoe["Yes",]
+caesar.shoe.no <- caesar.shoe["No",]
+caesar.shoe.total <- caesar.shoe.yes + caesar.shoe.no
+prop.trend.test(caesar.shoe.yes, caesar.shoe.total)
+```
+
+Scores do not give exact same results, but ALMOST exact same. Generally, theory determines that prop.trend.test is better for testing trends of proportions. 
+
+###11.3 Logistic Regression With Raw Data
+
+```{r}
+data(juul)
+juul$menarche <- factor(juul$menarche, labels = c("No", "Yes"))
+juul$tanner <- factor(juul$tanner)
+juul.girl <- subset(juul, age > 8 & age < 20 & complete.cases(menarche))
+attach(juul.girl)
+```
+
+```{r}
+summary(glm(menarche ~ age, binomial))
+```
+
+Responses is a factor with two levels. Also works with 0 and 1. Note: does not work with 1 and 2. 
+
+Notice can estimate the median menarcheal age as the age where logit p = 0. 
+
+```{r}
+#-20.0132 + 1.5173 * x = 0
+solve(1.5173, 20.0132)
+```
+
+13.19 years is median age
+
+More complex analysis is by introducing tanner. Note, interpretations change and is qualitatively different from menarche as a function of age. 
+
+```{r}
+summary(glm(menarche ~ age + tanner, binomial))
+```
+
+Notice there is no joint test for the effect of tanner. There are a couple of significant z-values, so you would expect that the tanner variable has some effect. The formal test, however, must be obtained from the deviances. 
+
+```{r}
+drop1(glm(menarche ~ age + tanner, binomial), test = "Chisq")
+```
+
+Clearly both terms are highly significant
+
+###11.4 Prediction
+
+```{r}
+predict(glm.hyp3)
+```
+Recall that smoking was eliminated from the model, which is why the expected values come in identical pairs.
+
+These numbers are on the logit scale, which reveals the additive structure. Notice that 2.39-1.697 = 1.527-.831 - .695, exactly the same regression coefficient to obesity. 
+
+To get predicted values on the response scale (i.e. probabiliites)
+
+```{r}
+predict(glm.hyp3, type = "response")
+```
+
+These may also be obtained by using fitted, although then you cannot use the techniques for predicting on new data
+
+```{r}
+fitted(glm.hyp3)
+```
+
+In the analysis of menarche, the primary interest is probably in seeing a plot of the expected probabilities versus age
+```{r}
+plot(age, fitted(glm(menarche ~ age, binomial)))
+```
+
+Will look better if different plotting symbols are used
+
+```{r}
+glm.menarche <- glm(menarche~age, binomial)
+Age <- seq(8, 20, .1)
+newages <- data.frame(age = Age)
+predicted.probability <- predict(glm.menarche, newages, type = "resp")
+plot(predicted.probability ~ Age, type = "l")
+```
+
+###11.5 Model checking
+For tabular data want to compare fitted and observed proportions
+
+```{r}
+fitted(glm.hyp)
+prop.hyp
+```
+
+Problem is you get no feeling about how well the relative frequencies are determined. See counts instead
+
+```{r}
+fitted(glm.hyp) * n.tot
+```
+
+To get a nice print comparison, use:
+```{r}
+data.frame(fitted(glm.hyp) * n.tot, n.hyp, n.tot)
+```
+
+For complex models with continuous bg checks, it becomes more difficult to perform an adequate model check. It is especially a hindrance with nothing really corresponds to a residuals plot when the observations only really have two different values. 
+
+Let's consider the example of the probability of menarche as a function of age. Can the relation really be assume linear on the logit scale? For this, you may subdivide on the x axis and see how the counts in each interval fit with the expected probabilities. 
+
+```{r}
+age.group <- cut(age, c(8, 10, 12, 13, 14, 15, 16, 18, 20))
+tb <- table(age.group, menarche)
+tb
+```
+
+```{r}
+rel.freq <- prop.table(tb, 1)[,2]
+points(rel.freq ~ c(9, 11, 12.5, 13.5, 14.5, 15.5, 17, 19), pch=5)
+```
+
+Plot looks reasonable as a whole, although 12-13 looks high and 13-14 looks low. But how to test whether these deviations are significant? 
+
+```{r}
+age.gr <- cut(age, c(8, 12, 13, 14, 20))
+summary(glm(menarche~ age + age.gr, binomial))
+anova(glm(menarche~ age + age.gr, binomial))
+```
+
+That is, the addition of the grouping actually does give a significantly better deviance. The effect is not highly significant, but since the deviation concerns the ages where "much happens", you should probably be cautious about posutlating a logit-linear age effect. 
+
+Another possibility is to try a polynomial regression model. Here you need at least a third-degree polynomial regression to describe the apparent stagnation of the curve around 13 years of age. We don't look at this in detail, but here is a summary:
+
+```{r}
+anova(glm(menarche ~ age + I(age^2) + I(age^3) + age.gr, binomial))
+```
+
+###11.6 Exercises
+```{r}
+#11.1
+data(malaria)
+attach(malaria)
+summary(glm(mal ~ log(ab) + age, binomial))
+```
+
+```{r}
+#11.2
+attach(graft.vs.host)
+str(graft.vs.host)
+graft.glm <- glm(gvhd ~ .,data = graft.vs.host, binomial)
+summary(graft.glm)
+step(graft.glm)
+
+##stepwise regression
+# Stepwise Regression
+library(MASS)
+step <- stepAIC(graft.glm, direction="both")
+step$anova # display results 
+```
+ Alternatively, you can perform all-subsets regression using the leaps( ) function from the leaps package. In the following code nbest indicates the number of subsets of each size to report. Here, the ten best models will be reported for each subset size (1 predictor, 2 predictors, etc.). 
+ 
+ 
+```{r}
+# All Subsets Regression
+library(leaps)
+attach(graft.vs.host)
+leaps<-regsubsets(gvhd~pnr + rcpage + donage + type + preg + index + time + dead,data=graft.vs.host,nbest=10)
+# view results
+summary(leaps)
+# plot a table of models showing variables in each model.
+# models are ordered by the selection statistic.
+plot(leaps,scale="r2")
+# plot statistic by subset size
+library(car)
+subsets(leaps, statistic="rsq") 
+```
+
+
+```{r}
+##11.3
+graft.glm
+library(MASS)
+exp(confint(graft.glm))
+exp(confint.default(graft.glm))
+#r#read more
+```
+
+```{r}
+##11.5
+summary(glm(menarche ~ age, data = juul, family = binomial("logit")))
+summary(glm(menarche ~ age, data = juul, family = binomial("probit"))) 
+
+#fit does not improve
+```

@@ -1,0 +1,233 @@
+---
+title: 'ISwR: Chapter 1'
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+
+```{r}
+library(ISwR)
+```
+
+
+####Working with vectors
+```{r}
+weight <- c(60, 72, 57, 90, 95, 72)
+height <- c(1.75, 1.8, 1.65, 1.9, 1.74, 1.91)
+bmi <- weight/height^2
+
+sum(weight)
+xbar <- sum(weight)/length(weight)
+weight-xbar
+
+```
+
+
+####T-test
+```{r}
+t.test(bmi, mu = 22.5)
+plot(height, weight, pch = 2)
+```
+
+####Rep and seq
+```{r}
+hh <- seq(1.65, 1.90, by = 0.05)
+lines(hh, 22.5 * hh^2)
+
+oops <- c(7, 9, 13)
+rep(oops, 3)
+rep(oops, 1:3)
+rep(oops, c(2, 3, 14))
+```
+
+####Matrices
+```{r}
+x <- 1:12
+dim(x) <- c(3,4)
+x
+```
+
+####Useful built-in arrays
+```{r}
+rownames(x) <- LETTERS[1:3]
+letters
+month.name
+month.abb
+```
+
+####Factors
+```{r}
+pain <- c(0, 3, 2, 2, 1)
+fpain <- factor(pain, levels = 0:3)
+levels(fpain) <- c("none", "mild", "medium", "severe")
+as.numeric(fpain)
+levels(fpain)
+```
+
+####Lists
+```{r}
+intake.pre <- c(5260, 5470, 5640, 6180, 6390, 6515, 6805, 7515, 7515, 8230, 8770)
+intake.post <- c(3910, 4220, 3885, 5160, 5645, 4680, 5265, 5975, 6790, 6900, 7335)
+
+mylist <- list(before = intake.pre, after = intake.post)
+mylist
+mylist$before
+mylist$after
+```
+
+####Dataframes
+```{r}
+d <- data.frame(intake.pre, intake.post)
+d
+```
+
+####Indexing
+```{r}
+intake.pre[5]
+intake.pre[c(2, 3, 7)]
+oddsToTen <- c(1, 3, 5, 7, 9)
+intake.pre[oddsToTen]
+intake.pre[-oddsToTen]
+```
+
+####Conditional Selection
+
+```{r}
+intake.post[intake.pre>7000]
+
+d[d$intake.pre > 7000, ]
+sel <- d$intake.pre > 7000
+d[sel,]
+data(thuesen)
+```
+
+####Subset and transform
+```{r}
+data(iris)
+irisLowSepal <- subset(iris, Sepal.Length < mean(Sepal.Length))
+
+iris2 <- transform(iris, logSepal = log(Sepal.Length))
+head(iris2)
+levels(iris$Species)
+```
+
+####Splitting
+```{r}
+irisSetosa <- iris[iris$Species == "setosa",]
+speciesSplit <- split(iris$Sepal.Length, iris$Species)
+```
+
+####Sorting/Ordering
+```{r}
+irisSetosaSepal <- irisSetosa$Sepal.Length
+sort(irisSetosaSepal)
+
+o <- order(irisSetosaSepal)
+irisSetosa[o,]
+
+attach(iris)
+iris[order(Sepal.Length, Species),]
+```
+
+####Looping/apply
+```{r}
+lapply(iris, mean)
+sapply(iris, mean)
+
+m <- matrix(rnorm(12), 4)
+m
+apply(m, 1, min) ####row-wise
+apply(m, 2, min) ####column-wise
+
+tapply(iris$Sepal.Length, iris$Species, median)
+```
+
+####Plotting
+```{r}
+x <- runif(50, 0, 2)
+y <- runif(50, 0, 2)
+plot(x, y)
+plot(x, y, main = "Main Title", sub = "Subtitle", xlab = "X-label", ylab = "Ylabel")
+text(0.6, 0.6, "text at (0.6, 0.6)")
+abline(h = .6, v = .6)
+
+mtext(paste("side", 1:4), side = 1:4, line = -1, font = 2)
+mtext("prob of disease | gender", side = 2, line = -3, font = 1)
+
+for(side in 1:4) mtext(-1:4, side = side, at = .7, line = -1:4)
+mtext("letters of the alphabet", side = 3, at = 1, line = -2)
+```
+
+####Plotting elements
+```{r}
+plot(x, y, type = "n", xlab = "", ylab = "", axes = F)
+points(x, y)
+axis(1)
+axis(2, at = seq(0.2, 1.8, 0.2))
+box()
+title(main = "Main title", sub = "Subtitle", xlab = "Xlabel", ylab = "Ylabel")
+```
+
+####Par function
+```{r}
+par(mar = c(5, 4, 4, 2))
+
+```
+
+####Combining Plots
+```{r}
+x <- rnorm(100)
+hist(x, freq=F)
+curve(dnorm(x), add=T)
+```
+
+####if top gets chopped off
+```{r}
+h <- hist(x, plot = F)
+ylim = range(0, h$density, dnorm(0))
+hist(x, freq=F, ylim=ylim)
+curve(dnorm(x), add=T)
+```
+
+####Functions
+```{r}
+hist.with.normal <- function(x, xlab = deparse(substitute(x)), ...) 
+{
+h = hist(x, plot=F, ...)
+s = sd(x)
+m = mean(x)
+ylim = range(0, h$density, dnorm(0, sd = s))
+hist(x, freq=F, ylim=ylim, xlab=xlab, ...)
+curve(dnorm(x,m,s), add=T)
+}
+
+hist.with.normal(rnorm(150000))
+
+x <- seq(0, 1, .5)
+plot(x, x, ylab = "y")
+for (j in 2:8) lines(x, x^j)
+```
+
+####Classes and generic functions
+```{r}
+methods(print) ##shows all methods of the print class. dynamic lookup... polymorphism 
+
+t.test(bmi, mu = 22.5)$conf.int
+summary(t.test(bmi, mu = 22.5)) ##to see all options in list
+
+rm(oops)
+rm(list = ls()) ##to remove entire object workspace
+save.image() ##to save entire object workspace
+
+search()
+```
+
+####Reading and editing dataframes
+```{r}
+data(airquality)
+edit(airquality)
+
+probs <- rep(TRUE, 15)
+ind <- c(5, 10)
+val <- c( probs, rep(FALSE,length(ind)) )
+```

@@ -1,0 +1,112 @@
+---
+title: "Chapter2-Probability-and-Distributions"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+
+#Chapter 2: Probability and Distributions
+###2.1 Random Sampling
+
+```{r}
+sample(1:40, 5) ##only integers
+sample(1:6, 5, replace = T)
+```
+
+```{r}
+a <- sample(c("succ", "fail"), 1000, rep = T, prob = c(.6, .4))
+table(a)
+```
+
+###2.2 Prob calcs and combanitorics
+```{r}
+##product of a vector
+prod(c(1, 2, 3))
+prod(40:36)
+40*39*38*37*36
+```
+
+```{r}
+1/prod(40:36) ##order matters
+1/40*1/39*1/38*1/37*1/36
+
+prod(5:1)/prod(40:36) ##order doesn't matter
+1/choose(40, 5)
+```
+
+###2.5 Distributions
+
+In any distribution there are:
+ - 1) Density or point probabilities
+ - 2) Cumulative probabilities, distribution function
+ - 3) Quantiles
+ - 4) Pseudo-random numbers
+ 
+ 
+#### Density or point probs
+Value of getting a value "close to" x
+
+```{r}
+dnorm(0)
+dnorm(-3:3)
+plot(dnorm(-3:3))
+```
+
+For discrete distributions, it is the prob of getting x = a certain value
+
+```{r}
+x = 0:50
+plot(x, dbinom(x, size = 50, prob = .33), type = "h")
+```
+This is conventionally interpreted as the number of ‘successes’ in size trials.
+
+####Cumulative Distribution function
+
+If someone scores 160 in a distribution with mean = 132 and sd = 13, what is the probability of obtaining this result due to chance? I.e. a p-value
+```{r}
+1-pnorm(160, mean = 132, sd = 13)
+```
+
+In 20 trials, if 16 people like A better than B, test whether this preference is due to chance
+
+```{r}
+1-pbinom(15, 20, p = .5) ##pbinom gives value of observing 15 or less
+1- pbinom(15, 20, p = .5) + pbinom(4, 20, p = .5) ##two-tailed test
+```
+Gets confusing to use pbinom, so use pbinom.test when applicable (which keeps track of all of this)
+
+####Quantiles
+Inverse of CDF
+
+Find quantiles, percentiles, etc. of a distribution
+```{r}
+pnorm(160, mean = 132, sd = 13)
+qnorm(0.9843739, mean = 132, sd = 13)
+
+qnorm(.5, mean = 100, sd = 10)
+qnorm((.5 + .3413), mean = 100, sd = 10)
+```
+
+###2.6 Exercises
+```{r}
+#2.1 a standard normally distributed variable is greater than 3
+1-pnorm(3)
+1-pnorm(42, 35, 6)
+dbinom(10, 10, p = .5)
+
+
+dbinom(10, 10, p = .5) - pbinom(0, 10, p = .5)
+punif(.9)
+1-pchisq(6.5, df = 2)
+```
+
+```{r}
+##standard deviations in a standard normal distribution with: 
+qnorm(.975) #5% (two-tailed)
+qnorm(.995) #1% (two-tailed)
+qnorm(.9975) #.5% (two-tailed)
+```
+
+```{r}
+pbinom(0, 10, prob = .2)
+```

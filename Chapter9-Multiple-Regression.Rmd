@@ -1,0 +1,44 @@
+---
+title: "Chapter9-Multiple-Regression"
+author: "Kurt Schuepfer"
+date: "1/6/2017"
+output: html_document
+---
+#Chapter 9: Multiple Regression
+
+```{r}
+data("cystfibr")
+attach(cystfibr)
+par(mex=0.5)
+pairs(cystfibr, gap = 0, cex.labels = 0.9)
+plot(cystfibr)
+```
+
+Small plots. Probably not idea. But quick look reveals close association among age, height, and weight.
+
+```{r}
+summary(lm(pemax ~ age + sex + height + weight + bmp + fev1 + rv + frc + tlc))
+```
+
+Notice omnibus F tests is significant, even though no t-value is significant. Also notice R-squared is higher than adjusted.
+
+```{r}
+1-25.47^2/var(pemax)
+```
+
+25.47 is residual SE from the model... adjusted is change in residual variance. R^2 is change in residual sum of squares relative to an empty model. 
+
+Anova gives a different picture
+```{r}
+anova(lm(pemax ~ age + sex + height + weight + bmp + fev1 + rv + frc + tlc))
+```
+
+Except for last predictor, basically no correspondence between these ANOVA F tests and lm T tests.
+
+Age is now significant. This is because the tests are now successive. Can compare just age model with others dropped to full model to see if improvement
+
+```{r}
+m1 <- lm(pemax ~ age + sex + height + weight + bmp + fev1 + rv + frc + tlc)
+m2 <- lm(pemax ~ age)
+anova(m1, m2)
+```
